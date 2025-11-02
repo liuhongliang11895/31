@@ -7,27 +7,37 @@
   <script>
     async function redirect() {
       try {
-        const res = await fetch("mapping.json?ts=" + Date.now()); // 加随机参数避免缓存
+        const res = await fetch("mapping.json?ts=" + Date.now()); // 防缓存
         const data = await res.json();
         const activeLinks = data.links.filter(l => l.active);
 
-        if (activeLinks.length === 0) {
-          return; // 没有可用链接则停留
+        if (activeLinks.length === 0) return;
+
+        // --- 读取已访问过的链接 ---
+        const visited = JSON.parse(localStorage.getItem("visitedLinks") || "[]");
+
+        // --- 过滤掉已访问的 ---
+        let available = activeLinks.filter(l => !visited.includes(l.url));
+
+        // --- 如果全都访问过，则重置（重新开始） ---
+        if (available.length === 0) {
+          localStorage.removeItem("visitedLinks");
+          available = activeLinks;
         }
 
-        // 按权重抽签
-        const weighted = [];
-        activeLinks.forEach(l => {
-          for (let i = 0; i < (l.weight || 1); i++) {
-            weighted.push(l.url);
-          }
-        });
-        const targetUrl = weighted[Math.floor(Math.random() * weighted.length)];
+        // --- 平均分配：随机从剩余中取一个 ---
+        const target = available[Math.floor(Math.random() * available.length)];
 
-        // 立即跳转
-        window.location.replace(targetUrl);
+        // --- 记录这次访问 ---
+        visited.push(target.url);
+        localStorage.setItem("visitedLinks", JSON.stringify(visited));
+
+        // --- 跳转 ---
+        window.location.replace(target.url);
+
       } catch (e) {
-        console.error("跳转失败", e);
+        console.error("跳转失败：", e);
+        document.body.innerHTML = "<h2>加载失败，请稍后重试。</h2>";
       }
     }
 
